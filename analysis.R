@@ -19,6 +19,8 @@ set.seed(2026L)
 library(survival)
 library(MatchIt)
 library(cobalt)
+library(WeightIt)
+library(tableone)
 
 # ---- 1. Simulate EHR cohort -------------------------------------------------
 
@@ -83,39 +85,21 @@ cohort <- data.frame(
 cat(sprintf("Cohort: %d patients (%d treated, %d control)\n",
             nrow(cohort), sum(cohort$treat), sum(!cohort$treat)))
 
-# ---- 2. Baseline characteristics --------------------------------------------
+# ---- 2. Baseline characteristics (Table 1) ----------------------------------
 
-vars <- c("age", "female", "bmi", "hba1c", "egfr",
-          "cv_history", "smoking", "statin_use")
+vars       <- c("age", "female", "bmi", "hba1c", "egfr",
+                "cv_history", "smoking", "statin_use")
+factor_vars <- c("female", "cv_history", "smoking", "statin_use")
 
-# Table 1 — baseline characteristics by treatment group (base R)
+tab1_pre <- tableone::CreateTableOne(
+  vars       = vars,
+  strata     = "treat",
+  data       = cohort,
+  factorVars = factor_vars
+)
+
 cat("\n--- Table 1: Pre-matching baseline characteristics ---\n")
-tab1 <- do.call(rbind, lapply(vars, function(v) {
-  x0 <- cohort[[v]][cohort$treat == 0]
-  x1 <- cohort[[v]][cohort$treat == 1]
-  if (length(unique(cohort[[v]])) == 2L) {
-    # Binary variable — report proportion
-    data.frame(
-      variable = v,
-      control  = sprintf("%.1f%%", mean(x0) * 100),
-      treated  = sprintf("%.1f%%", mean(x1) * 100),
-      smd      = sprintf("%.3f",
-                   (mean(x1) - mean(x0)) /
-                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
-    )
-  } else {
-    # Continuous variable — report mean (SD)
-    data.frame(
-      variable = v,
-      control  = sprintf("%.1f (%.1f)", mean(x0), stats::sd(x0)),
-      treated  = sprintf("%.1f (%.1f)", mean(x1), stats::sd(x1)),
-      smd      = sprintf("%.3f",
-                   (mean(x1) - mean(x0)) /
-                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
-    )
-  }
-}))
-print(tab1, row.names = FALSE)
+print(tab1_pre, smd = TRUE)
 
 # ---- 3. Propensity score estimation -----------------------------------------
 
@@ -123,10 +107,8 @@ ps_formula <- treat ~ age + female + bmi + hba1c + egfr +
               cv_history + smoking + statin_use + index_year
 
 ps_model <- stats::glm(ps_formula, data = cohort, family = stats::binomial())
-
 cohort$ps <- stats::predict(ps_model, type = "response")
 
-# C-statistic (concordance) for PS model
 ps_concordance <- survival::concordance(
   stats::glm(ps_formula, data = cohort, family = stats::binomial())
 )$concordance
@@ -153,14 +135,13 @@ matched_data <- MatchIt::match.data(match_out)
 
 bal <- cobalt::bal.tab(
   match_out,
-  stats    = c("mean.diffs", "variance.ratios"),
+  stats      = c("mean.diffs", "variance.ratios"),
   thresholds = c(m = 0.1)
 )
 
 cat("\n--- Balance after matching ---\n")
 print(bal)
 
-# Max standardised mean difference after matching
 smd_after <- max(abs(bal$Balance$Diff.Adj), na.rm = TRUE)
 cat(sprintf("Max SMD after matching: %.3f (threshold: 0.10)\n", smd_after))
 
@@ -183,7 +164,6 @@ cox_matched <- survival::coxph(
   weights = matched_data$weights
 )
 
-# Extract primary results
 hr_unadj   <- exp(stats::coef(cox_unadj)["treat"])
 ci_unadj   <- exp(stats::confint(cox_unadj)["treat", ])
 p_unadj    <- summary(cox_unadj)$coefficients["treat", "Pr(>|z|)"]
@@ -204,24 +184,16 @@ cat(sprintf("Multivariable:   HR = %.3f (95%% CI: %.3f-%.3f, p = %.4f)\n",
 cat(sprintf("PS-matched:      HR = %.3f (95%% CI: %.3f-%.3f, p = %.4f)\n",
             hr_matched, ci_matched[1], ci_matched[2], p_matched))
 
-# ---- 7. IPTW sensitivity analysis (manual — base R only) -------------------
-#
-# Stabilised IPTW weights for Average Treatment Effect (ATE):
-#   treated:   w = P(A=1) / PS
-#   control:   w = P(A=0) / (1 - PS)
-# Weights trimmed at 99th percentile to reduce influence of extreme values.
+# ---- 7. IPTW sensitivity analysis (WeightIt) --------------------------------
 
-p_treat     <- mean(cohort$treat)
-iptw_treat  <- p_treat / cohort$ps
-iptw_ctrl   <- (1 - p_treat) / (1 - cohort$ps)
-cohort$iptw <- ifelse(cohort$treat == 1L, iptw_treat, iptw_ctrl)
+wt_out <- WeightIt::weightit(
+  formula  = ps_formula,
+  data     = cohort,
+  method   = "ps",
+  estimand = "ATE"
+)
 
-# Trim at 99th percentile
-w99         <- stats::quantile(cohort$iptw, 0.99)
-cohort$iptw <- pmin(cohort$iptw, w99)
-
-cat(sprintf("IPTW weight range: %.2f - %.2f (trimmed at 99th pctile: %.2f)\n",
-            min(cohort$iptw), max(cohort$iptw), w99))
+cohort$iptw <- wt_out$weights
 
 cox_iptw <- survival::coxph(
   survival::Surv(time, event) ~ treat,
@@ -243,20 +215,18 @@ km_fit <- survival::survfit(
   data = matched_data
 )
 
-# 6- and 12-month event-free survival
 km_summary_6  <- base::summary(km_fit, times = 6)
 km_summary_12 <- base::summary(km_fit, times = 12)
 
-# Safe extraction — survfit may not reach all time points in small cohorts
 .safe_surv <- function(km_sum, idx) {
   s <- km_sum$surv
   if (is.null(s) || length(s) < idx) NA_real_ else s[[idx]]
 }
 
-km_12_ctrl  <- .safe_surv(km_summary_12, 1L)
-km_12_treat <- .safe_surv(km_summary_12, 2L)
 km_6_ctrl   <- .safe_surv(km_summary_6,  1L)
 km_6_treat  <- .safe_surv(km_summary_6,  2L)
+km_12_ctrl  <- .safe_surv(km_summary_12, 1L)
+km_12_treat <- .safe_surv(km_summary_12, 2L)
 
 cat(sprintf("\n6-month event-free survival:  control %.1f%%, treatment %.1f%%\n",
             km_6_ctrl * 100, km_6_treat * 100))
@@ -288,7 +258,7 @@ OUTPUTS <- list(
   ci_adj_hi       = round(ci_adj[2], 4),
   p_adj           = round(p_adj, 6),
 
-  # IPTW sensitivity
+  # IPTW sensitivity (WeightIt)
   hr_iptw         = round(hr_iptw, 4),
   ci_iptw_lo      = round(ci_iptw[1], 4),
   ci_iptw_hi      = round(ci_iptw[2], 4),
@@ -299,8 +269,6 @@ OUTPUTS <- list(
   km_6_treat      = round(km_6_treat,  4),
   km_12_ctrl      = round(km_12_ctrl,  4),
   km_12_treat     = round(km_12_treat, 4)
-
 )
 
 cat(sprintf("\n%d outputs ready for certification.\n", length(OUTPUTS)))
-# Note: 22 outputs (cohort, balance, PS-matched, multivariable, IPTW, KM landmarks)
