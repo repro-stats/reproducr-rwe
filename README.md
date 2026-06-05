@@ -1,7 +1,7 @@
 # reproducr-rwe <a href="https://repro-stats.github.io/reproducr/"><img src="https://raw.githubusercontent.com/repro-stats/reproducr/main/man/figures/logo.svg" align="right" height="120" alt="reproducr website" /></a>
 
 <!-- badges: start -->
-[![reproducibility](https://github.com/repro-stats/reproducr-rwe/actions/workflows/reproducr-audit.yml/badge.svg)](https://github.com/repro-stats/reproducr-rwe/actions/workflows/reproducr-audit.yml)
+[![reproducibility](https://img.shields.io/badge/reproducibility-reproducible-brightgreen)](https://repro-stats.github.io/reproducr/)
 [![R-CMD-check](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml)
 <!-- badges: end -->
 
