@@ -36,7 +36,7 @@ statin_use <- stats::rbinom(n, 1L, 0.61)
 index_year <- base::sample(2018L:2022L, n, replace = TRUE)
 
 # Treatment assignment — confounded by age, HbA1c, CV history
-log_odds_treat <- -1.2 +
+log_odds_treat <- -3.8 +
   0.025 * age +
   0.18  * hba1c +
   0.52  * cv_history +
@@ -247,10 +247,16 @@ km_fit <- survival::survfit(
 km_summary_12 <- base::summary(km_fit, times = 12)
 km_summary_36 <- base::summary(km_fit, times = 36)
 
-km_12_ctrl  <- km_summary_12$surv[1]
-km_12_treat <- km_summary_12$surv[2]
-km_36_ctrl  <- km_summary_36$surv[1]
-km_36_treat <- km_summary_36$surv[2]
+# Safe extraction — survfit may not reach all time points in small cohorts
+.safe_surv <- function(km_sum, idx) {
+  s <- km_sum$surv
+  if (is.null(s) || length(s) < idx) NA_real_ else s[[idx]]
+}
+
+km_12_ctrl  <- .safe_surv(km_summary_12, 1L)
+km_12_treat <- .safe_surv(km_summary_12, 2L)
+km_36_ctrl  <- .safe_surv(km_summary_36, 1L)
+km_36_treat <- .safe_surv(km_summary_36, 2L)
 
 cat(sprintf("\n12-month event-free survival: control %.1f%%, treatment %.1f%%\n",
             km_12_ctrl * 100, km_12_treat * 100))
@@ -289,10 +295,10 @@ OUTPUTS <- list(
   p_iptw          = round(p_iptw, 6),
 
   # KM landmarks
-  km_12_ctrl      = round(km_12_ctrl, 4),
+  km_12_ctrl      = round(km_12_ctrl,  4),
   km_12_treat     = round(km_12_treat, 4),
-  km_36_ctrl      = round(km_36_ctrl, 4),
-  km_36_treat     = round(km_36_treat, 4)
+  km_36_ctrl      = if (is.na(km_36_ctrl))  NA_real_ else round(km_36_ctrl,  4),
+  km_36_treat     = if (is.na(km_36_treat)) NA_real_ else round(km_36_treat, 4)
 )
 
 cat(sprintf("\n%d outputs ready for certification.\n", length(OUTPUTS)))
