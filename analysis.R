@@ -19,8 +19,6 @@ set.seed(2026L)
 library(survival)
 library(MatchIt)
 library(cobalt)
-library(WeightIt)
-library(tableone)
 
 # ---- 1. Simulate EHR cohort -------------------------------------------------
 
@@ -90,15 +88,34 @@ cat(sprintf("Cohort: %d patients (%d treated, %d control)\n",
 vars <- c("age", "female", "bmi", "hba1c", "egfr",
           "cv_history", "smoking", "statin_use")
 
-tab1_pre <- tableone::CreateTableOne(
-  vars     = vars,
-  strata   = "treat",
-  data     = cohort,
-  factorVars = c("female", "cv_history", "smoking", "statin_use")
-)
-
+# Table 1 — baseline characteristics by treatment group (base R)
 cat("\n--- Table 1: Pre-matching baseline characteristics ---\n")
-print(tab1_pre, smd = TRUE)
+tab1 <- do.call(rbind, lapply(vars, function(v) {
+  x0 <- cohort[[v]][cohort$treat == 0]
+  x1 <- cohort[[v]][cohort$treat == 1]
+  if (length(unique(cohort[[v]])) == 2L) {
+    # Binary variable — report proportion
+    data.frame(
+      variable = v,
+      control  = sprintf("%.1f%%", mean(x0) * 100),
+      treated  = sprintf("%.1f%%", mean(x1) * 100),
+      smd      = sprintf("%.3f",
+                   (mean(x1) - mean(x0)) /
+                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
+    )
+  } else {
+    # Continuous variable — report mean (SD)
+    data.frame(
+      variable = v,
+      control  = sprintf("%.1f (%.1f)", mean(x0), stats::sd(x0)),
+      treated  = sprintf("%.1f (%.1f)", mean(x1), stats::sd(x1)),
+      smd      = sprintf("%.3f",
+                   (mean(x1) - mean(x0)) /
+                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
+    )
+  }
+}))
+print(tab1, row.names = FALSE)
 
 # ---- 3. Propensity score estimation -----------------------------------------
 
@@ -109,16 +126,11 @@ ps_model <- stats::glm(ps_formula, data = cohort, family = stats::binomial())
 
 cohort$ps <- stats::predict(ps_model, type = "response")
 
-cat(sprintf("\nPS model AUC: %.3f\n",
-            as.numeric(suppressMessages(
-              tryCatch(
-                pROC::auc(cohort$treat, cohort$ps),
-                error = function(e) {
-                  # Simple concordance if pROC not available
-                  concordance(treat ~ ps, data = cohort)$concordance
-                }
-              )
-            ))))
+# C-statistic (concordance) for PS model
+ps_concordance <- survival::concordance(
+  stats::glm(ps_formula, data = cohort, family = stats::binomial())
+)$concordance
+cat(sprintf("\nPS model C-statistic: %.3f\n", ps_concordance))
 
 # ---- 4. Propensity score matching -------------------------------------------
 
@@ -192,16 +204,24 @@ cat(sprintf("Multivariable:   HR = %.3f (95%% CI: %.3f-%.3f, p = %.4f)\n",
 cat(sprintf("PS-matched:      HR = %.3f (95%% CI: %.3f-%.3f, p = %.4f)\n",
             hr_matched, ci_matched[1], ci_matched[2], p_matched))
 
-# ---- 7. IPTW sensitivity analysis -------------------------------------------
+# ---- 7. IPTW sensitivity analysis (manual — base R only) -------------------
+#
+# Stabilised IPTW weights for Average Treatment Effect (ATE):
+#   treated:   w = P(A=1) / PS
+#   control:   w = P(A=0) / (1 - PS)
+# Weights trimmed at 99th percentile to reduce influence of extreme values.
 
-wt_out <- WeightIt::weightit(
-  formula = ps_formula,
-  data    = cohort,
-  method  = "ps",
-  estimand = "ATE"
-)
+p_treat     <- mean(cohort$treat)
+iptw_treat  <- p_treat / cohort$ps
+iptw_ctrl   <- (1 - p_treat) / (1 - cohort$ps)
+cohort$iptw <- ifelse(cohort$treat == 1L, iptw_treat, iptw_ctrl)
 
-cohort$iptw <- wt_out$weights
+# Trim at 99th percentile
+w99         <- stats::quantile(cohort$iptw, 0.99)
+cohort$iptw <- pmin(cohort$iptw, w99)
+
+cat(sprintf("IPTW weight range: %.2f - %.2f (trimmed at 99th pctile: %.2f)\n",
+            min(cohort$iptw), max(cohort$iptw), w99))
 
 cox_iptw <- survival::coxph(
   survival::Surv(time, event) ~ treat,
