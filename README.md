@@ -36,12 +36,13 @@ records. New-user, active-comparator design with 36 months of follow-up.
 
 | Analysis | HR | 95% CI | p-value |
 |---|---|---|---|
-| Unadjusted | — | — | — |
-| Multivariable adjusted | — | — | — |
-| PS-matched (primary) | — | — | — |
-| IPTW (sensitivity) | — | — | — |
+| Unadjusted | 0.996 | 0.903–1.098 | 0.934 |
+| Multivariable adjusted | 0.743 | 0.671–0.824 | <0.001 |
+| PS-matched (primary) | 0.809 | 0.719–0.909 | <0.001 |
+| IPTW (sensitivity) | 0.790 | 0.713–0.875 | <0.001 |
 
-*Results populated by CI on each run — see `.reproducr.rds` for certified values.*
+*Results from simulated data with `set.seed(2026L)`. Certified values stored
+in `.reproducr.rds` — use `reproducr::list_certs()` to inspect.*
 
 ---
 
