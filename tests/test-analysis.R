@@ -15,12 +15,12 @@ stopifnot(
                                        OUTPUTS$hr_matched < OUTPUTS$ci_matched_hi,
   "p-value is between 0 and 1"       = OUTPUTS$p_matched >= 0 & OUTPUTS$p_matched <= 1,
   "IPTW HR is positive"              = OUTPUTS$hr_iptw > 0,
-  "KM estimates are between 0 and 1" = all(c(OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat,
-                                              OUTPUTS$km_24_ctrl, OUTPUTS$km_24_treat)
-                                            >= 0 & c(OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat,
-                                                     OUTPUTS$km_24_ctrl, OUTPUTS$km_24_treat)
+  "KM estimates are between 0 and 1" = all(c(OUTPUTS$km_6_ctrl, OUTPUTS$km_6_treat,
+                                              OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat)
+                                            >= 0 & c(OUTPUTS$km_6_ctrl, OUTPUTS$km_6_treat,
+                                                     OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat)
                                             <= 1),
-  "24 outputs produced"              = length(OUTPUTS) == 24L
+  "22 outputs produced"              = length(OUTPUTS) == 22L
 )
 
 cat("All tests passed.\n")

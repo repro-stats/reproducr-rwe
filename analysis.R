@@ -48,7 +48,7 @@ treat    <- stats::rbinom(n, 1L, ps_true)
 
 # Time-to-MACE outcome (Weibull)
 baseline_hazard <- exp(
-  -4.8 +
+  -7.5 +
   0.04  * age +
   0.35  * cv_history +
   0.18  * hba1c +
@@ -243,9 +243,9 @@ km_fit <- survival::survfit(
   data = matched_data
 )
 
-# 12- and 24-month event-free survival
+# 6- and 12-month event-free survival
+km_summary_6  <- base::summary(km_fit, times = 6)
 km_summary_12 <- base::summary(km_fit, times = 12)
-km_summary_24 <- base::summary(km_fit, times = 24)
 
 # Safe extraction — survfit may not reach all time points in small cohorts
 .safe_surv <- function(km_sum, idx) {
@@ -255,13 +255,13 @@ km_summary_24 <- base::summary(km_fit, times = 24)
 
 km_12_ctrl  <- .safe_surv(km_summary_12, 1L)
 km_12_treat <- .safe_surv(km_summary_12, 2L)
-km_24_ctrl  <- .safe_surv(km_summary_24, 1L)
-km_24_treat <- .safe_surv(km_summary_24, 2L)
+km_6_ctrl   <- .safe_surv(km_summary_6,  1L)
+km_6_treat  <- .safe_surv(km_summary_6,  2L)
 
-cat(sprintf("\n12-month event-free survival: control %.1f%%, treatment %.1f%%\n",
+cat(sprintf("\n6-month event-free survival:  control %.1f%%, treatment %.1f%%\n",
+            km_6_ctrl * 100, km_6_treat * 100))
+cat(sprintf("12-month event-free survival: control %.1f%%, treatment %.1f%%\n",
             km_12_ctrl * 100, km_12_treat * 100))
-cat(sprintf("24-month event-free survival: control %.1f%%, treatment %.1f%%\n",
-            km_24_ctrl * 100, km_24_treat * 100))
 
 # ---- 9. Collect outputs for certification -----------------------------------
 
@@ -295,10 +295,12 @@ OUTPUTS <- list(
   p_iptw          = round(p_iptw, 6),
 
   # KM landmarks
+  km_6_ctrl       = round(km_6_ctrl,   4),
+  km_6_treat      = round(km_6_treat,  4),
   km_12_ctrl      = round(km_12_ctrl,  4),
-  km_12_treat     = round(km_12_treat, 4),
-  km_24_ctrl      = round(km_24_ctrl,  4),
-  km_24_treat     = round(km_24_treat, 4)
+  km_12_treat     = round(km_12_treat, 4)
+
 )
 
 cat(sprintf("\n%d outputs ready for certification.\n", length(OUTPUTS)))
+# Note: 22 outputs (cohort, balance, PS-matched, multivariable, IPTW, KM landmarks)

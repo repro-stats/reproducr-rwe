@@ -1,7 +1,7 @@
 # reproducr-rwe <a href="https://repro-stats.github.io/reproducr/"><img src="https://raw.githubusercontent.com/repro-stats/reproducr/main/man/figures/logo.svg" align="right" height="120" alt="reproducr website" /></a>
 
 <!-- badges: start -->
-[![reproducibility](https://img.shields.io/badge/reproducibility-reproducible-brightgreen)](https://repro-stats.github.io/reproducr/)
+[![reproducibility](https://github.com/repro-stats/reproducr-rwe/actions/workflows/reproducr-audit.yml/badge.svg)](https://github.com/repro-stats/reproducr-rwe/actions/workflows/reproducr-audit.yml)
 [![R-CMD-check](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml)
 <!-- badges: end -->
 
@@ -16,7 +16,7 @@
 | **Analysis** | PS matching, IPTW, Cox PH, Kaplan-Meier |
 | **Environment** | renv — locked environment |
 | **Report style** | academic |
-| **Outputs certified** | 24 |
+| **Outputs certified** | 22 |
 | **Audience** | Epidemiologists, HEOR analysts, pharmacoepidemiologists |
 
 See the full walkthrough: [DEMO.md](DEMO.md)
@@ -69,7 +69,7 @@ locale-sensitive operations across all packages in the pipeline.
 
 **Tier 2 — Baseline & drift**
 
-`certify()` hashes 24 key outputs — cohort counts, balance statistics,
+`certify()` hashes 22 key outputs — cohort counts, balance statistics,
 hazard ratios with confidence intervals, p-values, and Kaplan-Meier landmarks.
 `check_drift()` compares against the previous certified run on every push.
 
