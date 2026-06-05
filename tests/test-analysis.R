@@ -16,9 +16,9 @@ stopifnot(
   "p-value is between 0 and 1"       = OUTPUTS$p_matched >= 0 & OUTPUTS$p_matched <= 1,
   "IPTW HR is positive"              = OUTPUTS$hr_iptw > 0,
   "KM estimates are between 0 and 1" = all(c(OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat,
-                                              OUTPUTS$km_36_ctrl, OUTPUTS$km_36_treat)
+                                              OUTPUTS$km_24_ctrl, OUTPUTS$km_24_treat)
                                             >= 0 & c(OUTPUTS$km_12_ctrl, OUTPUTS$km_12_treat,
-                                                     OUTPUTS$km_36_ctrl, OUTPUTS$km_36_treat)
+                                                     OUTPUTS$km_24_ctrl, OUTPUTS$km_24_treat)
                                             <= 1),
   "24 outputs produced"              = length(OUTPUTS) == 24L
 )
