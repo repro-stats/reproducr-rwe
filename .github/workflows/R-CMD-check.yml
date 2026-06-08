@@ -12,6 +12,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    env:
+      RENV_CONFIG_PPM_ENABLED: true   # use Posit Package Manager binaries
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +24,8 @@ jobs:
           use-public-rspm: true
 
       - uses: r-lib/actions/setup-renv@v2
+        with:
+          cache-version: 2
 
       - name: Install system dependencies
         run: |
