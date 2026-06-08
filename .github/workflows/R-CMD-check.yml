@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: '0 4 * * 1'
+    - cron: '0 4 * * 1'   # Weekly on Monday at 04:00 UTC (06:00 CEST)
 
 jobs:
   check:
@@ -20,16 +20,19 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
-      - name: Install packages
-        run: |
-          Rscript -e "install.packages(c('survival', 'MatchIt', 'cobalt',
-                                         'WeightIt', 'tableone'),
-                                        type = 'binary')"
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
+      - name: Install analysis packages
+        run: |
+          Rscript -e "
+            install.packages(
+              c('survival', 'MatchIt', 'cobalt', 'WeightIt', 'tableone'),
+              type = 'binary'
+            )
+          "
 
       - name: Run analysis tests
         run: Rscript tests/test-analysis.R

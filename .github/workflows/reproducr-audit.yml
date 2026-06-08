@@ -23,12 +23,19 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
-      - uses: r-lib/actions/setup-renv@v2
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
+      - name: Install analysis packages
+        run: |
+          Rscript -e "
+            install.packages(
+              c('survival', 'MatchIt', 'cobalt', 'WeightIt', 'tableone'),
+              type = 'binary'
+            )
+          "
 
       - name: Install reproducr
         env:
@@ -59,7 +66,7 @@ jobs:
               }
             } else {
               drift <- NULL
-              message('No prior certification — establishing baseline.')
+              message('No prior certification -- establishing baseline.')
             }
 
             certify(
