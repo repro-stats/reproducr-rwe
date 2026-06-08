@@ -5,7 +5,7 @@
 [![R-CMD-check](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/repro-stats/reproducr-rwe/actions/workflows/R-CMD-check.yml)
 <!-- badges: end -->
 
-> End-to-end `reproducr` pipeline for a simulated Real World Evidence study —
+> End-to-end `reproducr` pipeline for a simulated Real World Evidence study --
 > propensity score matching, IPTW sensitivity analysis, `renv` environment
 > locking, academic-style audit report.
 
@@ -14,7 +14,7 @@
 | **Domain** | Real World Evidence / pharmacoepidemiology |
 | **Dataset** | Simulated EHR cohort (n = 6,000 patients) |
 | **Analysis** | PS matching, IPTW, Cox PH, Kaplan-Meier |
-| **Environment** | renv — locked environment |
+| **Environment** | renv -- locked environment |
 | **Report style** | academic |
 | **Outputs certified** | 22 |
 | **Audience** | Epidemiologists, HEOR analysts, pharmacoepidemiologists |
@@ -36,13 +36,13 @@ records. New-user, active-comparator design with 36 months of follow-up.
 
 | Analysis | HR | 95% CI | p-value |
 |---|---|---|---|
-| Unadjusted | 0.996 | 0.903–1.098 | 0.934 |
-| Multivariable adjusted | 0.743 | 0.671–0.824 | <0.001 |
-| PS-matched (primary) | 0.809 | 0.719–0.909 | <0.001 |
-| IPTW (sensitivity) | 0.790 | 0.713–0.875 | <0.001 |
+| Unadjusted | 0.996 | 0.903--1.098 | 0.934 |
+| Multivariable adjusted | 0.743 | 0.671--0.824 | <0.001 |
+| PS-matched (primary) | 0.809 | 0.719--0.909 | <0.001 |
+| IPTW (sensitivity) | 0.790 | 0.713--0.875 | <0.001 |
 
 *Results from simulated data with `set.seed(2026L)`. Certified values stored
-in `.reproducr.rds` — use `reproducr::list_certs()` to inspect.*
+in `.reproducr.rds` -- use `reproducr::list_certs()` to inspect.*
 
 ---
 
@@ -51,30 +51,30 @@ in `.reproducr.rds` — use `reproducr::list_certs()` to inspect.*
 **Why RWE analyses are particularly vulnerable to silent breaking changes:**
 
 RWE pipelines are long, involve many packages at active development stages,
-and are often run years apart — at study design, during analysis, and at
+and are often run years apart -- at study design, during analysis, and at
 publication. Each gap is an opportunity for package behaviour to shift silently.
 
 Specific risks in this pipeline:
 
-- **`MatchIt`** — default matching method and caliper behaviour have evolved
+- **`MatchIt`** -- default matching method and caliper behaviour have evolved
   across versions; matched pairs can differ silently
-- **`WeightIt`** — estimand defaults and weight trimming behaviour have changed
-- **`cobalt`** — balance statistic calculations updated in recent versions
-- **`survival`** — `survfit()` output structure changed between major versions
+- **`WeightIt`** -- estimand defaults and weight trimming behaviour have changed
+- **`cobalt`** -- balance statistic calculations updated in recent versions
+- **`survival`** -- `survfit()` output structure changed between major versions
 
-**Tier 1 — Scan & score**
+**Tier 1 -- Scan & score**
 
 `audit_script()` scans `analysis.R`, resolves versions from `renv.lock`, and
 `risk_score()` flags any known breaking changes, missing seeds, or
 locale-sensitive operations across all packages in the pipeline.
 
-**Tier 2 — Baseline & drift**
+**Tier 2 -- Baseline & drift**
 
-`certify()` hashes 22 key outputs — cohort counts, balance statistics,
+`certify()` hashes 22 key outputs -- cohort counts, balance statistics,
 hazard ratios with confidence intervals, p-values, and Kaplan-Meier landmarks.
 `check_drift()` compares against the previous certified run on every push.
 
-**Tier 3 — Report & export**
+**Tier 3 -- Report & export**
 
 `repro_report()` generates an academic-style methods paragraph suitable for
 inclusion in an HEOR manuscript or HTA submission. `repro_badge()` updates the
@@ -84,15 +84,15 @@ README badge automatically.
 
 ## Reproducibility design choices
 
-**`set.seed(2026L)` at the top of `analysis.R`** — every stochastic call in
+**`set.seed(2026L)` at the top of `analysis.R`** -- every stochastic call in
 the pipeline (cohort simulation, matching) is covered by a single seed set at
 the script entry point.
 
-**`renv` for environment locking** — `renv.lock` records the exact version of
+**`renv` for environment locking** -- `renv.lock` records the exact version of
 every package. `reproducr` then verifies that those locked versions do not
 contain known silent breaking changes.
 
-**Qualified calls throughout** — all function calls use `pkg::fn` notation.
+**Qualified calls throughout** -- all function calls use `pkg::fn` notation.
 This makes every dependency explicit and allows `audit_script()` to detect
 them. It also makes the code self-documenting.
 
@@ -101,8 +101,8 @@ them. It also makes the code self-documenting.
 ## Running locally
 
 ```r
-# Clone the repo, then:
-renv::restore()        # restore the locked environment
+# Clone the repo, then restore the locked environment:
+renv::restore()
 source("analysis.R")
 
 library(reproducr)
@@ -110,6 +110,18 @@ report <- audit_script("analysis.R", renv = TRUE)
 risks  <- risk_score(report)
 print(risks)
 ```
+
+> **Note:** On Linux, if `renv::restore()` attempts to compile packages from
+> source, install binary packages directly instead:
+> ```r
+> options(pkgType = "binary")
+> renv::restore()
+> ```
+> Or install dependencies manually:
+> ```r
+> install.packages(c("survival", "MatchIt", "cobalt", "WeightIt", "tableone"),
+>                  type = "binary")
+> ```
 
 ---
 
@@ -119,8 +131,12 @@ Two workflows run on every push and weekly:
 
 | Workflow | Purpose |
 |---|---|
-| `R-CMD-check.yml` | Restore renv, run structural tests |
+| `R-CMD-check.yml` | Install packages as binaries, run structural tests |
 | `reproducr-audit.yml` | Audit, certify, detect drift, update badge |
+
+> CI installs packages directly as binaries rather than via `renv::restore()`
+> to avoid source compilation on Linux runners. The `renv.lock` remains the
+> authoritative environment record for local reproducibility.
 
 ---
 
@@ -131,3 +147,4 @@ Two workflows run on every push and weekly:
 | [reproducr-ecology](https://github.com/repro-stats/reproducr-ecology) | Ecology / penguins | No | minimal |
 | [reproducr-clinical](https://github.com/repro-stats/reproducr-clinical) | Clinical trials / oncology | Yes | pharma |
 | **reproducr-rwe** (this repo) | Real world evidence | Yes | academic |
+| [reproducr-cmc](https://github.com/repro-stats/reproducr-cmc) | CMC statistics | Yes | pharma |
