@@ -20,7 +20,6 @@ library(survival)
 library(MatchIt)
 library(cobalt)
 library(WeightIt)
-library(tableone)
 
 # ---- 1. Simulate EHR cohort -------------------------------------------------
 
@@ -87,19 +86,35 @@ cat(sprintf("Cohort: %d patients (%d treated, %d control)\n",
 
 # ---- 2. Baseline characteristics (Table 1) ----------------------------------
 
-vars       <- c("age", "female", "bmi", "hba1c", "egfr",
-                "cv_history", "smoking", "statin_use")
-factor_vars <- c("female", "cv_history", "smoking", "statin_use")
+vars <- c("age", "female", "bmi", "hba1c", "egfr",
+          "cv_history", "smoking", "statin_use")
 
-tab1_pre <- tableone::CreateTableOne(
-  vars       = vars,
-  strata     = "treat",
-  data       = cohort,
-  factorVars = factor_vars
-)
-
+# Table 1 -- baseline characteristics by treatment group
 cat("\n--- Table 1: Pre-matching baseline characteristics ---\n")
-print(tab1_pre, smd = TRUE)
+tab1 <- do.call(rbind, lapply(vars, function(v) {
+  x0 <- cohort[[v]][cohort$treat == 0]
+  x1 <- cohort[[v]][cohort$treat == 1]
+  if (length(unique(cohort[[v]])) == 2L) {
+    data.frame(
+      variable = v,
+      control  = sprintf("%.1f%%", mean(x0) * 100),
+      treated  = sprintf("%.1f%%", mean(x1) * 100),
+      smd      = sprintf("%.3f",
+                   (mean(x1) - mean(x0)) /
+                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
+    )
+  } else {
+    data.frame(
+      variable = v,
+      control  = sprintf("%.1f (%.1f)", mean(x0), stats::sd(x0)),
+      treated  = sprintf("%.1f (%.1f)", mean(x1), stats::sd(x1)),
+      smd      = sprintf("%.3f",
+                   (mean(x1) - mean(x0)) /
+                   sqrt((stats::var(x1) + stats::var(x0)) / 2))
+    )
+  }
+}))
+print(tab1, row.names = FALSE)
 
 # ---- 3. Propensity score estimation -----------------------------------------
 
