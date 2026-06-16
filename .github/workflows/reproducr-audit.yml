@@ -64,7 +64,7 @@ jobs:
 
             certify(
               outputs = OUTPUTS,
-              tag     = paste0('ci-', Sys.Date()),
+              tag     = paste0('ci-', format(Sys.time(), '%Y%m%d-%H%M%S')),
               script  = 'analysis.R'
             )
 
@@ -87,7 +87,7 @@ jobs:
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md .reproducr.rds
+          git add README.md .reproducr.rds reproducibility_report.md
           git diff --staged --quiet || \
             git commit -m 'chore: update reproducibility audit [skip ci]'
           git pull --rebase origin main
